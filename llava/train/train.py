@@ -1,19 +1,6 @@
-# Adopted from https://github.com/lm-sys/FastChat. Below is the original copyright:
-# Adopted from tatsu-lab@stanford_alpaca. Below is the original copyright:
-#    Copyright 2023 Rohan Taori, Ishaan Gulrajani, Tianyi Zhang, Yann Dubois, Xuechen Li
+import time
+import psutil
 #
-#    Licensed under the Apache License, Version 2.0 (the "License");
-#    you may not use this file except in compliance with the License.
-#    You may obtain a copy of the License at
-#
-#        http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS,
-#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#    See the License for the specific language governing permissions and
-#    limitations under the License.
-
 import os
 import copy
 from dataclasses import dataclass, field
@@ -46,7 +33,9 @@ def rank0_print(*args):
     if local_rank == 0:
         print(*args)
 
-
+#====================================================================================================================================
+# ARGUMENTS
+#====================================================================================================================================
 @dataclass
 class ModelArguments:
     model_name_or_path: Optional[str] = field(default="facebook/opt-125m")
@@ -62,7 +51,6 @@ class ModelArguments:
     mm_vision_select_feature: Optional[str] = field(default="patch")
     mm_patch_merge_type: Optional[str] = field(default='flat')
 
-
 @dataclass
 class DataArguments:
     data_path: str = field(default=None,
@@ -73,8 +61,6 @@ class DataArguments:
     image_aspect_ratio: str = 'square'
     train_vip_prmpt_style: str = ''
     
-
-
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
     cache_dir: Optional[str] = field(default=None)
@@ -110,7 +96,9 @@ class TrainingArguments(transformers.TrainingArguments):
     mm_projector_lr: Optional[float] = None
     group_by_modality_length: bool = field(default=False)
 
-
+#====================================================================================================================================
+# ULTIL FUNCTIONS
+#====================================================================================================================================
 def maybe_zero_3(param, ignore_status=False, name=None):
     from deepspeed import zero
     from deepspeed.runtime.zero.partition_parameters import ZeroParamStatus
@@ -123,7 +111,6 @@ def maybe_zero_3(param, ignore_status=False, name=None):
     else:
         param = param.detach().cpu().clone()
     return param
-
 
 # Borrowed from peft.utils.get_peft_model_state_dict
 def get_peft_state_maybe_zero_3(named_params, bias):
@@ -150,7 +137,6 @@ def get_peft_state_maybe_zero_3(named_params, bias):
     to_return = {k: maybe_zero_3(v, ignore_status=True) for k, v in to_return.items()}
     return to_return
 
-
 def get_peft_state_non_lora_maybe_zero_3(named_params, require_grad_only=True):
     to_return = {k: t for k, t in named_params if "lora_" not in k}
     if require_grad_only:
@@ -158,12 +144,10 @@ def get_peft_state_non_lora_maybe_zero_3(named_params, require_grad_only=True):
     to_return = {k: maybe_zero_3(v, ignore_status=True).cpu() for k, v in to_return.items()}
     return to_return
 
-
 def get_mm_adapter_state_maybe_zero_3(named_params, keys_to_match):
     to_return = {k: t for k, t in named_params if any(key_match in k for key_match in keys_to_match)}
     to_return = {k: maybe_zero_3(v, ignore_status=True).cpu() for k, v in to_return.items()}
     return to_return
-
 
 def find_all_linear_names(model):
     cls = torch.nn.Linear
@@ -179,7 +163,6 @@ def find_all_linear_names(model):
     if 'lm_head' in lora_module_names: # needed for 16-bit
         lora_module_names.remove('lm_head')
     return list(lora_module_names)
-
 
 def safe_save_model_for_hf_trainer(trainer: transformers.Trainer,
                                    output_dir: str):
@@ -219,7 +202,6 @@ def safe_save_model_for_hf_trainer(trainer: transformers.Trainer,
         del state_dict
         trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
 
-
 def smart_tokenizer_and_embedding_resize(
     special_tokens_dict: Dict,
     tokenizer: transformers.PreTrainedTokenizer,
@@ -243,7 +225,6 @@ def smart_tokenizer_and_embedding_resize(
 
         input_embeddings[-num_new_tokens:] = input_embeddings_avg
         output_embeddings[-num_new_tokens:] = output_embeddings_avg
-
 
 def _tokenize_fn(strings: Sequence[str],
                  tokenizer: transformers.PreTrainedTokenizer) -> Dict:
@@ -271,7 +252,6 @@ def _tokenize_fn(strings: Sequence[str],
         labels_lens=labels_lens,
     )
 
-
 def _mask_targets(target, tokenized_lens, speakers):
     # cur_idx = 0
     cur_idx = tokenized_lens[0]
@@ -281,7 +261,6 @@ def _mask_targets(target, tokenized_lens, speakers):
         if speaker == "human":
             target[cur_idx+2:cur_idx + tokenized_len] = IGNORE_INDEX
         cur_idx += tokenized_len
-
 
 def _add_speaker_and_signal(header, source, get_conversation=True):
     """Add speaker and start/end signal on each round."""
@@ -303,7 +282,9 @@ def _add_speaker_and_signal(header, source, get_conversation=True):
     conversation += BEGIN_SIGNAL
     return conversation
 
-
+#====================================================================================================================================
+# PREPROCESS DATA
+#====================================================================================================================================
 def preprocess_multimodal(
     sources: Sequence[str],
     data_args: DataArguments
@@ -326,7 +307,6 @@ def preprocess_multimodal(
             sentence["value"] = sentence["value"].replace(DEFAULT_IMAGE_TOKEN, replace_token)
 
     return sources
-
 
 def preprocess_llama_2(
     sources,
@@ -408,8 +388,6 @@ def preprocess_llama_2(
         input_ids=input_ids,
         labels=targets,
     )
-
-
     
 def preprocess_phi_3(
     sources,
@@ -505,10 +483,6 @@ def preprocess_phi_3(
         input_ids=input_ids,
         labels=targets,
     )
-    
-    
-    
-    
 
 def preprocess_v1(
     sources,
@@ -690,8 +664,7 @@ def preprocess_llama_3(
     return dict(
         input_ids=input_ids,
         labels=targets,
-    )
-    
+    )    
     
 def preprocess_mpt(
     sources,
@@ -758,7 +731,6 @@ def preprocess_mpt(
         labels=targets,
     )
 
-
 def preprocess_plain(
     sources: Sequence[str],
     tokenizer: transformers.PreTrainedTokenizer,
@@ -779,7 +751,6 @@ def preprocess_plain(
         target[:tokenized_len] = IGNORE_INDEX
 
     return dict(input_ids=input_ids, labels=targets)
-
 
 def preprocess(
     sources: Sequence[str],
@@ -832,7 +803,9 @@ def preprocess(
 
     return dict(input_ids=input_ids, labels=targets)
 
-
+#====================================================================================================================================
+# DATASET
+#====================================================================================================================================
 class LazySupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
 
@@ -957,7 +930,6 @@ class DataCollatorForSupervisedDataset(object):
 
         return batch
 
-
 def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer,
                                 data_args) -> Dict:
     """Make dataset and collator for supervised fine-tuning."""
@@ -972,7 +944,9 @@ def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer,
                 eval_dataset=None,
                 data_collator=data_collator)
 
-
+#====================================================================================================================================
+# TRAINING FUNCTION
+#====================================================================================================================================
 def train(attn_implementation=None):
     global local_rank
 
@@ -1018,8 +992,7 @@ def train(attn_implementation=None):
                 attn_implementation=attn_implementation,
                 torch_dtype=(torch.bfloat16 if training_args.bf16 else None),
                 **bnb_model_from_pretrained_args
-            )
-            
+            )   
         else:
             model = LlavaLlamaForCausalLM.from_pretrained(
                 model_args.model_name_or_path,
@@ -1115,7 +1088,7 @@ def train(attn_implementation=None):
         )
         
         vision_tower = model.get_vision_tower()
-        vision_tower.to(dtype=torch.bfloat16 if training_args.bf16 else torch.float16, device=training_args.device)
+        vision_tower.to(dtype = torch.bfloat16 if training_args.bf16 else torch.float16, device = training_args.device)
 
         data_args.image_processor = vision_tower.image_processor
         data_args.is_multimodal = True
@@ -1157,19 +1130,67 @@ def train(attn_implementation=None):
                     if training_args.bf16 and module.weight.dtype == torch.float32:
                         module = module.to(torch.bfloat16)
 
-    data_module = make_supervised_data_module(tokenizer=tokenizer,
-                                              data_args=data_args)
-    trainer = LLaVATrainer(model=model,
-                    tokenizer=tokenizer,
-                    args=training_args,
-                    **data_module)
+    data_module = make_supervised_data_module(
+        tokenizer = tokenizer,
+        data_args = data_args
+    )
+    trainer = LLaVATrainer(
+        model     = model,
+        tokenizer = tokenizer,
+        args      = training_args,
+        **data_module
+    )
+    
     for names, p in model.named_parameters():
         if p.requires_grad:
             rank0_print(names, "requires_grad")
+    
+    # --- START BENCHMARK LOGGING ---
+    if local_rank in (0, None):
+        torch.cuda.reset_peak_memory_stats()
+        cpu_mem_before = psutil.virtual_memory().used if psutil else None
+        t0 = time.time()
+        n_samples = len(trainer.train_dataset)
+        n_params_trainable = sum(
+            p.numel() for p in model.parameters() if p.requires_grad
+        )
+        rank0_print(f"[BENCH] Trainable params: {n_params_trainable:,}")
+    # --- END PREPARE LOGGING ---
+    
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
         trainer.train(resume_from_checkpoint=True)
     else:
         trainer.train()
+
+    # --- END BENCHMARK LOGGING ---
+    if local_rank in (0, None):
+        t1 = time.time()
+        total_time = t1 - t0
+        gpu_peak = torch.cuda.max_memory_allocated() / (1024**2)
+        cpu_mem_after = psutil.virtual_memory().used if psutil else None
+        cpu_delta = cpu_mem_after - cpu_mem_before if cpu_mem_before is not None else None
+        throughput = n_samples / total_time
+        rank0_print(f"[BENCH] Total time       : {total_time:.1f}s")
+        rank0_print(f"[BENCH] Throughput       : {throughput:.1f} samples/s")
+        rank0_print(f"[BENCH] GPU peak memory  : {gpu_peak:.1f} MiB")
+        if cpu_delta is not None:
+            rank0_print(f"[BENCH] CPU delta memory : {cpu_delta/1024**2:.1f} MiB")
+    # --- END LOGGING LOGIC ---
+
+    if local_rank in (0, None):
+        csv_line = ",".join(map(str, [
+            model_args.version,
+            n_samples,
+            n_params_trainable,
+            f"{total_time:.1f} s",
+            f"{throughput:.1f} samples/s",
+            f"{gpu_peak:.1f} MiB",
+            f"{cpu_delta/1024**2:.1f}" if cpu_delta else ""
+        ]))
+        with open(os.path.join(training_args.output_dir, "benchmark.csv"), "a") as f:
+            f.write(csv_line + "\n")
+    # --- END LOGGING LOGIC ---
+
     trainer.save_state()
 
     model.config.use_cache = True

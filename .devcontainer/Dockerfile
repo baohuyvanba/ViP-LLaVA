@@ -1,23 +1,40 @@
-FROM mcr.microsoft.com/devcontainers/base:ubuntu-20.04
+FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04
+#FROM mcr.microsoft.com/devcontainers/base:ubuntu-20.04
 
 SHELL [ "bash", "-c" ]
 
 # Ubuntu Mirror server
-ARG UBUNTU_MIRROR=archive.ubuntu.com/ubuntu
+# ARG UBUNTU_MIRROR=archive.ubuntu.com/ubuntu
 #docker build --build-arg UBUNTU_MIRROR=us.archive.ubuntu.com/ubuntu .
 
 # Change mirror and Force apt only run IPv4
-RUN sed -i "s|http://archive.ubuntu.com/ubuntu|http://$UBUNTU_MIRROR|g" /etc/apt/sources.list
+# RUN sed -i "s|http://archive.ubuntu.com/ubuntu|http://$UBUNTU_MIRROR|g" /etc/apt/sources.list
 # echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
 
 # Update cache, turn on universe, install system packages
+# RUN apt-get update --fix-missing && \
+#     apt-get install -y software-properties-common && \
+#     add-apt-repository universe && \
+#     apt-get update && \
+#     apt-get install -yq \
+#         ffmpeg \
+#         nvidia-cuda-toolkit \
+#         dkms \
+#         build-essential \
+#         jq \
+#         jp \
+#         tree \
+#         tldr \
+#         git \
+#         wget \
+#         curl \
+#         ca-certificates
 RUN apt-get update --fix-missing && \
-    apt-get install -y software-properties-common && \
-    add-apt-repository universe && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common && \
+    add-apt-repository --yes universe && \
     apt-get update && \
-    apt-get install -yq \
+    DEBIAN_FRONTEND=noninteractive apt-get install -yq \
         ffmpeg \
-        nvidia-cuda-toolkit \
         dkms \
         build-essential \
         jq \
@@ -30,19 +47,24 @@ RUN apt-get update --fix-missing && \
         ca-certificates
 
 # Git LFS
-RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash && \
-    apt-get install -yq git-lfs && \
-    git lfs install
+# RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash && \
+#     apt-get install -yq git-lfs && \
+#     git lfs install
 
 ############################################
 # Setup user
 ############################################
+RUN useradd -m -s /bin/bash vscode && \
+    echo "vscode ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vscode
 USER vscode
 WORKDIR /home/vscode
 
 # Miniconda
+ENV PATH="/usr/local/cuda/bin:$PATH"
+ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
 ENV CONDA_DIR=/home/vscode/conda
 ENV PATH="$CONDA_DIR/bin:$PATH"
+
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && \
     bash miniconda.sh -b -p "$CONDA_DIR" && \
     rm miniconda.sh && \
@@ -58,9 +80,9 @@ RUN git clone https://github.com/baohuyvanba/ViP-LLaVA.git /home/vscode/ViP-LLaV
     conda run -n vip-llava pip install -e /home/vscode/ViP-LLaVA && \
     conda run -n vip-llava pip install -e "/home/vscode/ViP-LLaVA[train]" && \
     conda run -n vip-llava pip install huggingface_hub
-
-RUN conda run -n vip-llava pip install accelerate==0.32.0 && \
-    conda run -n vip-llava pip install peft==0.10.0
+    # conda run -n vip-llava pip install accelerate==0.32.0 && \
+    # conda run -n vip-llava pip install peft==0.10.0 && \
+    # conda run -n vip-llava pip install flash-attn --no-build-isolation
 
 # STAGE 1: Download LLaVA Pretrain Data
 # RUN mkdir -p /home/vscode/ViP-LLaVA/playground/data/LLaVA-Pretrain && \

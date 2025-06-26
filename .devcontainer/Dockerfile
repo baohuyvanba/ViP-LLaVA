@@ -72,6 +72,6 @@ RUN conda run -n vip-llava pip install accelerate==0.32.0 && \
     # rm images.zip
 
 #STAGE 2
-COPY vip-llava_stage2_mix_coco.json /home/vscode/ViP-LLaVA/playground/data
-# RUN cd /home/vscode/ViP-LLaVA/playground/data && \
-#     wget -c http://images.cocodataset.org/zips/train2017.zip
+# COPY vip-llava_stage2_mix_coco.json /home/vscode/ViP-LLaVA/playground/data
+# # RUN cd /home/vscode/ViP-LLaVA/playground/data && \
+# #     wget -c http://images.cocodataset.org/zips/train2017.zip

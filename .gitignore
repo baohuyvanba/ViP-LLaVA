@@ -34,10 +34,10 @@ ckpts*
 # Demo
 serve_images/
 
+playground/data/
 images/gradio*
 tmp*
 dataset
 *chtc*
 *debug*
 llava/model/language_model/mpt_old
-source_dump.txt

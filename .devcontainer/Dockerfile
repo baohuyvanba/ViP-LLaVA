@@ -2,52 +2,76 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu-20.04
 
 SHELL [ "bash", "-c" ]
 
-# update apt and install packages
-RUN apt update && \
-    apt install -yq \
-        ffmpeg \
-        dkms \
-        build-essential
+# Ubuntu Mirror server
+ARG UBUNTU_MIRROR=archive.ubuntu.com/ubuntu
+#docker build --build-arg UBUNTU_MIRROR=us.archive.ubuntu.com/ubuntu .
 
-# add user tools
-RUN sudo apt install -yq \
+# Change mirror and Force apt only run IPv4
+RUN sed -i "s|http://archive.ubuntu.com/ubuntu|http://$UBUNTU_MIRROR|g" /etc/apt/sources.list
+# echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
+
+# Update cache, turn on universe, install system packages
+RUN apt-get update --fix-missing && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository universe && \
+    apt-get update && \
+    apt-get install -yq \
+        ffmpeg \
+        nvidia-cuda-toolkit \
+        dkms \
+        build-essential \
         jq \
         jp \
         tree \
-        tldr
+        tldr \
+        git \
+        wget \
+        curl \
+        ca-certificates
 
-# add git-lfs and install
-RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash && \
-    sudo apt-get install -yq git-lfs && \
+# Git LFS
+RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash && \
+    apt-get install -yq git-lfs && \
     git lfs install
 
 ############################################
 # Setup user
 ############################################
-
 USER vscode
+WORKDIR /home/vscode
 
-# install azcopy, a tool to copy to/from blob storage
-# for more info: https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-blobs-upload#upload-a-file
-RUN cd /tmp && \
-    wget https://azcopyvnext.azureedge.net/release20230123/azcopy_linux_amd64_10.17.0.tar.gz && \
-    tar xvf azcopy_linux_amd64_10.17.0.tar.gz && \
-    mkdir -p ~/.local/bin && \
-    mv azcopy_linux_amd64_10.17.0/azcopy ~/.local/bin && \
-    chmod +x ~/.local/bin/azcopy && \
-    rm -rf azcopy_linux_amd64*
+# Miniconda
+ENV CONDA_DIR=/home/vscode/conda
+ENV PATH="$CONDA_DIR/bin:$PATH"
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && \
+    bash miniconda.sh -b -p "$CONDA_DIR" && \
+    rm miniconda.sh && \
+    conda init --all
 
-# Setup conda
-RUN cd /tmp && \
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    bash ./Miniconda3-latest-Linux-x86_64.sh -b && \
-    rm ./Miniconda3-latest-Linux-x86_64.sh
+# Initial Conda Environment
+RUN conda create -n vip-llava python=3.10 -y && \
+    conda clean -afy
 
-# Install dotnet
-RUN cd /tmp && \
-    wget https://dot.net/v1/dotnet-install.sh && \
-    chmod +x dotnet-install.sh && \
-    ./dotnet-install.sh --channel 7.0 && \
-    ./dotnet-install.sh --channel 3.1 && \
-    rm ./dotnet-install.sh
+# Clone Repo and Install Requirements
+RUN git clone https://github.com/baohuyvanba/ViP-LLaVA.git /home/vscode/ViP-LLaVA && \
+    conda run -n vip-llava pip install --upgrade pip && \
+    conda run -n vip-llava pip install -e /home/vscode/ViP-LLaVA && \
+    conda run -n vip-llava pip install -e "/home/vscode/ViP-LLaVA[train]" && \
+    conda run -n vip-llava pip install huggingface_hub
 
+RUN conda run -n vip-llava pip install accelerate==0.32.0 && \
+    conda run -n vip-llava pip install peft==0.10.0
+
+# STAGE 1: Download LLaVA Pretrain Data
+# RUN mkdir -p /home/vscode/ViP-LLaVA/playground/data/LLaVA-Pretrain && \
+#     cd /home/vscode/ViP-LLaVA/playground/data/LLaVA-Pretrain && \
+#     wget -c https://huggingface.co/datasets/liuhaotian/LLaVA-Pretrain/resolve/main/blip_laion_cc_sbu_558k_meta.json && \
+#     wget -c https://huggingface.co/datasets/liuhaotian/LLaVA-Pretrain/resolve/main/blip_laion_cc_sbu_558k.json && \
+#     wget -c https://huggingface.co/datasets/liuhaotian/LLaVA-Pretrain/resolve/main/images.zip
+    # unzip images.zip -d images && \
+    # rm images.zip
+
+#STAGE 2
+COPY vip-llava_stage2_mix_coco.json /home/vscode/ViP-LLaVA/playground/data
+# RUN cd /home/vscode/ViP-LLaVA/playground/data && \
+#     wget -c http://images.cocodataset.org/zips/train2017.zip

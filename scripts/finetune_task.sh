@@ -3,7 +3,6 @@ PROMPT_VERSION=llava_v1
 DATA_ROOT=./playground/data
 model_size=7b
 
-
 deepspeed --master_port 12347 llava/train/train_mem.py \
     --deepspeed ./scripts/zero2.json \
     --model_name_or_path mucai/vip-llava-$model_size \

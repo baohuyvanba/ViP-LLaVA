@@ -243,7 +243,6 @@ class Conversation:
             "sep2": self.sep2,
         }
 
-
 conv_vicuna_v0 = Conversation(
     system="A chat between a curious human and an artificial intelligence assistant. "
            "The assistant gives helpful, detailed, and polite answers to the human's questions.",
@@ -313,10 +312,6 @@ conv_llava_llama_3 = Conversation(
     sep2="<|end_of_text|>",
 )
 
-
-
-
-
 conv_llava_phi_3 = Conversation(
     system="You are a helpful language and vision assistant. "
            "You are able to understand the visual content that the user provides, "
@@ -329,10 +324,6 @@ conv_llava_phi_3 = Conversation(
     sep="",
     sep2="<|end|>",
 )
-
-
-
-
 
 conv_llava_llama_2 = Conversation(
     system="You are a helpful language and vision assistant. "
@@ -372,8 +363,7 @@ conv_llava_v0 = Conversation(
     system="A chat between a curious human and an artificial intelligence assistant. "
            "The assistant gives helpful, detailed, and polite answers to the human's questions.",
     roles=("Human", "Assistant"),
-    messages=(
-    ),
+    messages=(),
     offset=0,
     sep_style=SeparatorStyle.SINGLE,
     sep="###",
@@ -440,6 +430,7 @@ Answer the questions.""",
 )
 
 default_conversation = conv_vicuna_v1
+
 conv_templates = {
     "default": conv_vicuna_v0,
     "v0": conv_vicuna_v0,

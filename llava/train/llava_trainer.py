@@ -14,7 +14,7 @@ from transformers.trainer import (
 )
 from typing import List, Optional
 
-
+#
 def maybe_zero_3(param, ignore_status=False, name=None):
     from deepspeed import zero
     from deepspeed.runtime.zero.partition_parameters import ZeroParamStatus
@@ -28,13 +28,13 @@ def maybe_zero_3(param, ignore_status=False, name=None):
         param = param.detach().cpu().clone()
     return param
 
-
+#
 def get_mm_adapter_state_maybe_zero_3(named_params, keys_to_match):
     to_return = {k: t for k, t in named_params if any(key_match in k for key_match in keys_to_match)}
     to_return = {k: maybe_zero_3(v, ignore_status=True, name=k).cpu() for k, v in to_return.items()}
     return to_return
 
-
+#
 def split_to_even_chunks(indices, lengths, num_chunks):
     """
     Split a list of indices into `chunks` chunks of roughly equal lengths.
@@ -56,7 +56,7 @@ def split_to_even_chunks(indices, lengths, num_chunks):
 
     return chunks
 
-
+#
 def get_modality_length_grouped_indices(lengths, batch_size, world_size, generator=None):
     # We need to use torch for the random part as a distributed sampler will set the random seed for torch.
     assert all(l != 0 for l in lengths), "Should not have zero length."
@@ -84,7 +84,7 @@ def get_modality_length_grouped_indices(lengths, batch_size, world_size, generat
 
     return [i for megabatch in megabatches for i in megabatch]
 
-
+#
 def get_length_grouped_indices(lengths, batch_size, world_size, generator=None, merge=True):
     # We need to use torch for the random part as a distributed sampler will set the random seed for torch.
     indices = torch.randperm(len(lengths), generator=generator)
@@ -95,7 +95,7 @@ def get_length_grouped_indices(lengths, batch_size, world_size, generator=None, 
 
     return [i for megabatch in megabatches for batch in megabatch for i in batch]
 
-
+#
 class LengthGroupedSampler(Sampler):
     r"""
     Sampler that samples indices in a way that groups together features of the dataset of roughly the same length while
@@ -129,9 +129,10 @@ class LengthGroupedSampler(Sampler):
             indices = get_length_grouped_indices(self.lengths, self.batch_size, self.world_size, generator=self.generator)
         return iter(indices)
 
-
+#===============================================================================================================
+# MAIN TRAINER CLASS
+#===============================================================================================================
 class LLaVATrainer(Trainer):
-
     def _get_train_sampler(self) -> Optional[torch.utils.data.Sampler]:
         if self.train_dataset is None or not has_length(self.train_dataset):
             return None
@@ -220,6 +221,8 @@ class LLaVATrainer(Trainer):
             #     )
             # else:
             self.optimizer = optimizer_cls(optimizer_grouped_parameters, **optimizer_kwargs)
+            
+            #Handle Adam8bit
             if optimizer_cls.__name__ == "Adam8bit":
                 import bitsandbytes
 

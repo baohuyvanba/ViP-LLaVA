@@ -8,30 +8,28 @@ from scipy.stats import multivariate_normal
 
 
 color_pool = {
-    'red': (255, 0, 0),
-    'lime': (0, 255, 0),
-    'blue': (0, 0, 255),
-    'yellow': (255, 255, 0),
-    'fuchsia': (255, 0, 255),
-    'aqua': (0, 255, 255),
-    'orange': (255, 165, 0),
-    'purple': (128, 0, 128),
-    'gold': (255, 215, 0),
+    'red'       : (255, 0, 0),
+    'lime'      : (0, 255, 0),
+    'blue'      : (0, 0, 255),
+    'yellow'    : (255, 255, 0),
+    'fuchsia'   : (255, 0, 255),
+    'aqua'      : (0, 255, 255),
+    'orange'    : (255, 165, 0),
+    'purple'    : (128, 0, 128),
+    'gold'      : (255, 215, 0),
 }
 
 
 words_shape ={
-    "rectangle": ["within", "rectangle"], 
-    "ellipse": ["within", "ellipse"],
-    "triangle": ["with", "triangle"],
-    "point": ["at", "point"], 
-    "scribble" : ["with", "scribble"], 
-    "mask contour": ["with", "mask contour"],
-    "mask": ["with", "mask"],
-    "arrow": ["pointed to by", "arrow"],
+    "rectangle"     : ["within", "rectangle"], 
+    "ellipse"       : ["within", "ellipse"],
+    "triangle"      : ["with", "triangle"],
+    "point"         : ["at", "point"], 
+    "scribble"      : ["with", "scribble"], 
+    "mask contour"  : ["with", "mask contour"],
+    "mask"          : ["with", "mask"],
+    "arrow"         : ["pointed to by", "arrow"],
  }
-
-
 
 
 def draw_arrow(draw, bbox_coord, outline_color, line_width, max_arrow_length=100, max_image_size=336, image_size_anchor = 336):
@@ -268,73 +266,77 @@ def draw_mask(draw, bbox_coord,  segmentation_coords, color="red", width=1,   ):
 
 
 def image_blending(image, shape = 'rectangle', bbox_coord = None, segmentation = None, image_size_anchor = 336, rgb_value = None, visual_prompt_style = '', alpha = None, width = None):
-      image = image.convert("RGB")
-      img_width, img_height = image.size
-      max_image_size = max(img_width, img_height)
-      visual_prompt_img = Image.new("RGBA", (img_width, img_height), (0, 0, 0, 0))
-      visual_prompt_img_canvas = ImageDraw.Draw(visual_prompt_img)
-    #   color, rgb_value = random.choice(list(color_pool.items()))
-      if alpha == None:
-            alpha =  random.randint(96, 255) if shape != 'mask' else  random.randint(48, 128) 
-      color_alpha = rgb_value + (alpha,)
-      if segmentation != None:
-            try:
-                polygons = []
-                for segmentation_coord in segmentation:
-                    mask_polygon = Polygon([(segmentation_coord[i], segmentation_coord[i+1]) for i in range(0, len(segmentation_coord), 2)])
-                    polygons.append(mask_polygon)
-                mask_polygon = random.choice(polygons)
-                try: 
-                    all_polygons_union = unary_union(polygons)
-                except:
-                    all_polygons_union = None
-                    # print('Error in all_polygons_union')
+    #Image -> RGB
+    image = image.convert("RGB")
+    img_width, img_height = image.size
+    max_image_size = max(img_width, img_height)
+    
+    #New RGBA (blank)
+    visual_prompt_img = Image.new("RGBA", (img_width, img_height), (0, 0, 0, 0))
+    visual_prompt_img_canvas = ImageDraw.Draw(visual_prompt_img)
+    
+    #Transparency: alpha blending value
+    if alpha == None:
+        alpha =  random.randint(96, 255) if shape != 'mask' else  random.randint(48, 128) 
+    color_alpha = rgb_value + (alpha,)
+
+    #Polygon ?
+    if segmentation != None:
+        try:
+            polygons = []
+            for segmentation_coord in segmentation:
+                mask_polygon = Polygon([(segmentation_coord[i], segmentation_coord[i+1]) for i in range(0, len(segmentation_coord), 2)])
+                polygons.append(mask_polygon)
+            mask_polygon = random.choice(polygons)
+            try: 
+                all_polygons_union = unary_union(polygons)
             except:
-                mask_polygon = None
-                # print('Error in Polygon Generation')
-                
-                
-                
-      else:
-            all_polygons_union = mask_polygon = None
-        
-        # draw shapes
-      if shape == 'rectangle':
-            line_width =  max( int(3 *max_image_size/image_size_anchor), 1) if visual_prompt_style == 'constant' else max(random.randint( int(2 *max_image_size/image_size_anchor), int(8 * max_image_size/image_size_anchor)), 1)
-            line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
-            draw_rectangle(visual_prompt_img_canvas, bbox_coord, color_alpha, line_width)
-      elif shape == 'ellipse':
-            line_width =  max(random.randint( int(2 *max_image_size/image_size_anchor), int(8 * max_image_size/image_size_anchor)), 1)
-            line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
-            size_ratio = random.uniform(1, 1.5) # 
-            draw_ellipse(visual_prompt_img_canvas, bbox_coord, all_polygons_union, color_alpha, line_width, size_ratio = size_ratio)  
-      elif shape == 'arrow':
-            line_width = max(random.randint(int(1 * max_image_size / image_size_anchor), int(6 * max_image_size / image_size_anchor)), 1)
-            line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
-            max_arrow_length= max( int(50 * max_image_size/image_size_anchor), 1)
-            draw_arrow(visual_prompt_img_canvas, bbox_coord, color_alpha, line_width , max_image_size=max_image_size, max_arrow_length = max_arrow_length, image_size_anchor = image_size_anchor)
-      elif shape == 'triangle':
-            line_width =  max(random.randint(int(2 *  max_image_size/image_size_anchor), int(8 * max_image_size/image_size_anchor)), 1)
-            line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
-            draw_rounded_triangle(visual_prompt_img_canvas, bbox_coord, all_polygons_union, color_alpha, line_width)
-      elif shape == 'point':
-            radius =   max( int(8 * max_image_size/image_size_anchor), 1) if visual_prompt_style == 'constant' else  max(random.randint(int(5 * max_image_size/image_size_anchor),  int(20 *max_image_size/image_size_anchor)), 1)
-            aspect_ratio =1 if random.random()<0.5 or  visual_prompt_style == 'constant' else random.uniform(0.5, 2.0)
-            draw_point(visual_prompt_img_canvas, bbox_coord, mask_polygon, color_alpha, radius, aspect_ratio)
-      elif shape == 'scribble':
-            line_width =  max(random.randint(int(2 * max_image_size/image_size_anchor), int(12 * max_image_size/image_size_anchor)), 1)
-            line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
-            draw_scribble(visual_prompt_img_canvas, bbox_coord, mask_polygon, color_alpha, line_width, max_image_size=max_image_size, image_size_anchor = image_size_anchor)
-      elif shape == 'mask':
-            line_width = random.randint( int(0 *max_image_size/image_size_anchor), int(2 * max_image_size/image_size_anchor))
-            line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
-            draw_mask(visual_prompt_img_canvas, bbox_coord, segmentation, color_alpha, line_width)       
-      elif shape == 'mask contour':
-            line_width =  max(random.randint( int(1 *max_image_size/image_size_anchor), int(2 * max_image_size/image_size_anchor)), 1)
-            line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
-            draw_mask_contour(visual_prompt_img_canvas, bbox_coord, segmentation, color_alpha, line_width)
- 
-      image = image.convert("RGBA")
-      image = Image.alpha_composite(image, visual_prompt_img)
-      image = image.convert("RGB")
-      return image
+                all_polygons_union = None
+                # print('Error in all_polygons_union')
+        except:
+            mask_polygon = None
+            # print('Error in Polygon Generation')
+    else:
+        all_polygons_union = mask_polygon = None
+    
+
+    # Draw shapes
+    if shape == 'rectangle':
+        line_width =  max( int(3 *max_image_size/image_size_anchor), 1) if visual_prompt_style == 'constant' else max(random.randint( int(2 *max_image_size/image_size_anchor), int(8 * max_image_size/image_size_anchor)), 1)
+        line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
+        draw_rectangle(visual_prompt_img_canvas, bbox_coord, color_alpha, line_width)
+    elif shape == 'ellipse':
+        line_width =  max(random.randint( int(2 *max_image_size/image_size_anchor), int(8 * max_image_size/image_size_anchor)), 1)
+        line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
+        size_ratio = random.uniform(1, 1.5) # 
+        draw_ellipse(visual_prompt_img_canvas, bbox_coord, all_polygons_union, color_alpha, line_width, size_ratio = size_ratio)  
+    elif shape == 'arrow':
+        line_width = max(random.randint(int(1 * max_image_size / image_size_anchor), int(6 * max_image_size / image_size_anchor)), 1)
+        line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
+        max_arrow_length= max( int(50 * max_image_size/image_size_anchor), 1)
+        draw_arrow(visual_prompt_img_canvas, bbox_coord, color_alpha, line_width , max_image_size=max_image_size, max_arrow_length = max_arrow_length, image_size_anchor = image_size_anchor)
+    elif shape == 'triangle':
+        line_width =  max(random.randint(int(2 *  max_image_size/image_size_anchor), int(8 * max_image_size/image_size_anchor)), 1)
+        line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
+        draw_rounded_triangle(visual_prompt_img_canvas, bbox_coord, all_polygons_union, color_alpha, line_width)
+    elif shape == 'point':
+        radius =   max( int(8 * max_image_size/image_size_anchor), 1) if visual_prompt_style == 'constant' else  max(random.randint(int(5 * max_image_size/image_size_anchor),  int(20 *max_image_size/image_size_anchor)), 1)
+        aspect_ratio =1 if random.random()<0.5 or  visual_prompt_style == 'constant' else random.uniform(0.5, 2.0)
+        draw_point(visual_prompt_img_canvas, bbox_coord, mask_polygon, color_alpha, radius, aspect_ratio)
+    elif shape == 'scribble':
+        line_width =  max(random.randint(int(2 * max_image_size/image_size_anchor), int(12 * max_image_size/image_size_anchor)), 1)
+        line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
+        draw_scribble(visual_prompt_img_canvas, bbox_coord, mask_polygon, color_alpha, line_width, max_image_size=max_image_size, image_size_anchor = image_size_anchor)
+    elif shape == 'mask':
+        line_width = random.randint( int(0 *max_image_size/image_size_anchor), int(2 * max_image_size/image_size_anchor))
+        line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
+        draw_mask(visual_prompt_img_canvas, bbox_coord, segmentation, color_alpha, line_width)       
+    elif shape == 'mask contour':
+        line_width =  max(random.randint( int(1 *max_image_size/image_size_anchor), int(2 * max_image_size/image_size_anchor)), 1)
+        line_width =  max( int(width *max_image_size/image_size_anchor), 1) if width != None else line_width
+        draw_mask_contour(visual_prompt_img_canvas, bbox_coord, segmentation, color_alpha, line_width)
+
+    image = image.convert("RGBA")
+    image = Image.alpha_composite(image, visual_prompt_img)
+    image = image.convert("RGB")
+    return image

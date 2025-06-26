@@ -7,6 +7,7 @@ from transformers import StoppingCriteria
 from llava.constants import IMAGE_TOKEN_INDEX
 
 
+# PROCESS ANY-RES IMAGES ---------------------------------------------------------------------------------------------------------------
 def select_best_resolution(original_size, possible_resolutions):
     """
     Selects the best resolution from a list of possible resolutions based on the original size.
@@ -35,7 +36,6 @@ def select_best_resolution(original_size, possible_resolutions):
             best_fit = (width, height)
 
     return best_fit
-
 
 def resize_and_pad_image(image, target_resolution):
     """
@@ -70,8 +70,7 @@ def resize_and_pad_image(image, target_resolution):
     new_image.paste(resized_image, (paste_x, paste_y))
 
     return new_image
-
-
+#
 def divide_to_patches(image, patch_size):
     """
     Divides an image into patches of a specified size.
@@ -93,7 +92,7 @@ def divide_to_patches(image, patch_size):
 
     return patches
 
-
+#
 def get_anyres_image_grid_shape(image_size, grid_pinpoints, patch_size):
     """
     Calculate the shape of the image patch grid after the preprocessing for images of any resolution.
@@ -113,7 +112,7 @@ def get_anyres_image_grid_shape(image_size, grid_pinpoints, patch_size):
     width, height = select_best_resolution(image_size, possible_resolutions)
     return width // patch_size, height // patch_size
 
-
+#
 def process_anyres_image(image, processor, grid_pinpoints):
     """
     Process an image with variable resolutions.
@@ -142,11 +141,10 @@ def process_anyres_image(image, processor, grid_pinpoints):
                      for image_patch in image_patches]
     return torch.stack(image_patches, dim=0)
 
-
 def load_image_from_base64(image):
     return Image.open(BytesIO(base64.b64decode(image)))
 
-
+# EXPAND IMAGE TO SQUARE ----------------------------------------------------------------------------------------------------------------
 def expand2square(pil_img, background_color):
     width, height = pil_img.size
     if width == height:
@@ -160,7 +158,7 @@ def expand2square(pil_img, background_color):
         result.paste(pil_img, ((height - width) // 2, 0))
         return result
 
-
+# PRE-PROCESS INPUT IMAGE -> NORMALIZED IMAGE TENSOR ----------------------------------------------------------------------------------
 def process_image(image, image_preprocess, image_processor):
     if image_preprocess == 'pad':
         image = expand2square(image, tuple(int(x*255) for x in image_processor.image_mean))
@@ -185,11 +183,12 @@ def process_image(image, image_preprocess, image_processor):
 
     return image
 
-
-
+# PRE-PROCESS INPUT IMAGES -> NORMALIZED IMAGE TENSOR ----------------------------------------------------------------------------------
 def process_images(images, image_processor, model_cfg, image_aspect_ratio = None):
     image_aspect_ratio = getattr(model_cfg, "image_aspect_ratio", None) if image_aspect_ratio is None else image_aspect_ratio
     new_images = []
+
+    #Preprocess Image's aspect ratio
     if image_aspect_ratio == 'pad':
         for image in images:
             image = expand2square(image, tuple(int(x*255) for x in image_processor.image_mean))
@@ -203,25 +202,42 @@ def process_images(images, image_processor, model_cfg, image_aspect_ratio = None
             new_images.append(image)
     else:
         return image_processor(images, return_tensors='pt')['pixel_values']
+    
     if all(x.shape == new_images[0].shape for x in new_images):
-        new_images = torch.stack(new_images, dim=0)
+        new_images = torch.stack(new_images, dim = 0)
     return new_images
 
+# TOKENIZER WITH IMAGE TOKEN ----------------------------------------------------------------------------------------------------------
+def tokenizer_image_token(
+        prompt, tokenizer,
+        image_token_index = IMAGE_TOKEN_INDEX,
+        return_tensors    = None
+):
+    """
+    Prompt -> Chunks (split by <image>) -> Tokenize text in each chunk -> Insert image token index
+    """
 
-def tokenizer_image_token(prompt, tokenizer, image_token_index=IMAGE_TOKEN_INDEX, return_tensors=None):
-    prompt_chunks = [tokenizer(chunk).input_ids for chunk in prompt.split('<image>')]
+    #Divide Prompt -> Chunks
+    prompt_chunks = [
+        tokenizer(chunk).input_ids
+        for chunk in prompt.split('<image>')
+    ]
 
     def insert_separator(X, sep):
+        """Inserts a separator between each element of X"""
         return [ele for sublist in zip(X, [sep]*len(X)) for ele in sublist][:-1]
 
     input_ids = []
-    offset = 0
+    offset    = 0
+    #Get BOS token index in the first chunk only, if it exists
     if len(prompt_chunks) > 0 and len(prompt_chunks[0]) > 0 and prompt_chunks[0][0] == tokenizer.bos_token_id:
         offset = 1
         input_ids.append(prompt_chunks[0][0])
 
+    #Add all chunks to input_ids, inserting the image token index at the appropriate indices
     for x in insert_separator(prompt_chunks, [image_token_index] * (offset + 1)):
-        input_ids.extend(x[offset:])
+        # [Image Token Index] need to times with (offset + 1) (x2) beacause one of them will be cut with [offset:] ([1:] in [image_toke_index, image_token_index]) 
+        input_ids.extend(x[offset:]) #Do not include the BOS token
 
     if return_tensors is not None:
         if return_tensors == 'pt':
@@ -229,15 +245,16 @@ def tokenizer_image_token(prompt, tokenizer, image_token_index=IMAGE_TOKEN_INDEX
         raise ValueError(f'Unsupported tensor type: {return_tensors}')
     return input_ids
 
-
+#MODEL NAME EXTRACTION ===================================================================================================================
 def get_model_name_from_path(model_path):
-    model_path = model_path.strip("/")
+    model_path  = model_path.strip("/")
     model_paths = model_path.split("/")
     if model_paths[-1].startswith('checkpoint-'):
         return model_paths[-2] + "_" + model_paths[-1]
     else:
         return model_paths[-1]
 
+#STOPPING CRITERIA =======================================================================================================================
 class KeywordsStoppingCriteria(StoppingCriteria):
     def __init__(self, keywords, tokenizer, input_ids):
         self.keywords = keywords

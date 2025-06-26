@@ -1,39 +1,7 @@
-# Copyright 2023 Cruise LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-
-
 import torch
 import torch.nn as nn
 
 from transformers import CLIPVisionModel, CLIPImageProcessor, CLIPVisionConfig
-
-# Copyright 2023 Cruise LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-
 
 class CLIPVisionTowerMultilayer(nn.Module):
     def __init__(self, vision_tower, args, delay_load=False):
@@ -41,9 +9,9 @@ class CLIPVisionTowerMultilayer(nn.Module):
 
         self.is_loaded = False
 
-        self.vision_tower_name = vision_tower
-        self.select_layer = args.mm_vision_select_layer
-        self.select_feature = getattr(args, 'mm_vision_select_feature', 'patch')
+        self.vision_tower_name  = vision_tower
+        self.select_layer       = args.mm_vision_select_layer
+        self.select_feature     = getattr(args, 'mm_vision_select_feature', 'patch')
 
         if not delay_load:
             self.load_model()
@@ -52,7 +20,7 @@ class CLIPVisionTowerMultilayer(nn.Module):
 
     def load_model(self):
         self.image_processor = CLIPImageProcessor.from_pretrained('openai/clip-vit-large-patch14-336')
-        self.vision_tower = CLIPVisionModel.from_pretrained('openai/clip-vit-large-patch14-336')
+        self.vision_tower    = CLIPVisionModel.from_pretrained('openai/clip-vit-large-patch14-336')
         self.vision_tower.requires_grad_(False)
 
         self.is_loaded = True

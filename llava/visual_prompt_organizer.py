@@ -5,9 +5,6 @@ import re
 import json
 from llava.visual_prompt_generator import image_blending, color_pool, words_shape
 
-
-
-
 def build_prompt(question, options):
     """
     Build a prompt string based on the given question and options.
@@ -31,8 +28,6 @@ def build_prompt(question, options):
 Answer with the option's letter from the given choices directly."""
     
     return prompt
-
-
 
 def add_period_and_autocorrect(annotation):
     # List of common abbreviations that should not be split
@@ -185,9 +180,6 @@ questions = {
         "Please describe the image with the object referred to by the visual prompts; make sure to mention both the actual visual prompt, such as a red box, and the semantic category, such as a dog."
     ]
 }
-
-
-
 
 
 def generate_conversation(convs):
@@ -627,11 +619,11 @@ def create_question_prompt_direct_pointQA(line, question_type = 'general_questio
 
 
 visual_prompt_config = dict(
-    refcocog=[ ["rectangle", "ellipse","triangle", "point", "scribble" ,  "mask contour" , "mask", "arrow"], ''],
-    vcr = [ ["rectangle", "ellipse","triangle", "scribble" ,  "mask contour" , "mask", "arrow"], ''],
-    vg_rel =  [ ["rectangle", "ellipse", ], ''], #  [ ["rectangle", "ellipse", "arrow"], ''],
-    flickr30k =[ ["rectangle", "ellipse", "arrow"], ''],
-    v7w = [ ["rectangle"], 'constant'],
+    refcocog  = [ ["rectangle", "ellipse","triangle", "point", "scribble" ,  "mask contour" , "mask", "arrow"], ''],
+    vcr       = [ ["rectangle", "ellipse","triangle", "scribble" ,  "mask contour" , "mask", "arrow"], ''],
+    vg_rel    = [ ["rectangle", "ellipse", ], ''], #  [ ["rectangle", "ellipse", "arrow"], ''],
+    flickr30k = [ ["rectangle", "ellipse", "arrow"], ''],
+    v7w       = [ ["rectangle"], 'constant'],
     pointQA_twice = [ ["rectangle"], 'constant'],     
 ) 
 
@@ -642,27 +634,36 @@ visual_prompt_config_test = dict(
 )
         
 def vip_processor(source, image, image_size_anchor, data_args):
+    #Get the visual prompt style
     dataset_type, sub_type = source['id'].split('-')[0],  source['id'].split('-')[1]
+    
+    #Get the visual prompt shape choices and style
     if getattr(data_args, "visual_prompt_style", None) != None:
         visual_prompt_shape_choices, visual_prompt_style  = visual_prompt_config_test[data_args.visual_prompt_style]
     else:
         visual_prompt_shape_choices, visual_prompt_style  = visual_prompt_config[dataset_type]
     
+    #None-Segmentation: VG, RefCOCOg, V7W, PointQA
     if dataset_type in {'vg_rel', 'v7w', 'pointQA_twice'}:
         source['segmentations'] = [None] * len(source['bboxes'])
         
-        
+    #VCR
     if dataset_type in {'vcr'}:
+        #Metadata
         source['meta_dir'] = source['meta_dir'].replace('./dataset', data_args.image_folder)
         meta_data = json.load(open(source['meta_dir']))
+        
         if getattr(data_args, "visual_prompt_style", None) == 'vcr_qa':
             shape_color_info, all_instance_index, conversation  = create_question_direct_qa(source, visual_prompt_shape_choices, color_list = list(color_pool.items()) )
         elif getattr(data_args, "visual_prompt_style", None) == 'vcr_qar':
             shape_color_info, all_instance_index, conversation  = create_question_direct_qar(source, visual_prompt_shape_choices, color_list = list(color_pool.items()) )
         else:
             shape_color_info, all_instance_index, conversation  = create_question_prompt(source, visual_prompt_shape_choices, color_list = list(color_pool.items()) )
+        
+        #Get bboxes and segmentations
         source['bboxes'] = [meta_data['boxes'][instance_index][:-1] for instance_index in all_instance_index]
         source['segmentations'] = []
+
         for instance_index in all_instance_index:
             segmentation_data = []
             for seg_index in range(len(meta_data['segms'][instance_index])-1, -1, -1):
@@ -672,13 +673,16 @@ def vip_processor(source, image, image_size_anchor, data_args):
                 source['segmentations'].append(segmentation_data)
             else:
                 source['segmentations'].append(None)
+    #Flickr30k
     elif dataset_type in {'flickr30k'}:
         shape_color_info, conversation, bboxes = create_question_prompt_flicker30k(source, visual_prompt_shape_choices, color_list = list(color_pool.items()) )
         source['bboxes'] = bboxes
         source['segmentations'] = [None] * len(source['bboxes'])
+    #RefCOCOg
     elif dataset_type in {'v7w'}:
         shape_color_info, conversation, bboxes = create_question_prompt_direct(source, visual_prompt_shape_choices, color_list = list(color_pool.items()), answer_type = 'direct' )
         source['bboxes'] = bboxes
+    #PointQA
     elif dataset_type in {'pointQA_twice'}:
         shape_color_info, conversation = create_question_prompt_direct_pointQA(source )
     else:
@@ -705,13 +709,19 @@ def vip_processor(source, image, image_size_anchor, data_args):
     alpha = getattr(data_args, "alpha", None)
     for instance_idx, (bbox, segmentation) in enumerate(zip(source['bboxes'], source['segmentations'])):
         color_name, color_rgb, sampled_shape = shape_color_info[instance_idx] # random.choice(visual_prompt_shape_choices)
-        image = image_blending(image,  shape = sampled_shape, image_size_anchor = image_size_anchor, rgb_value=color_rgb, bbox_coord= bbox, segmentation=segmentation, visual_prompt_style = visual_prompt_style, alpha = alpha)
+        
+        #Add Visual Prompt to Image
+        image = image_blending(image,
+                               shape = sampled_shape,
+                               image_size_anchor = image_size_anchor,
+                               rgb_value = color_rgb,
+                               bbox_coord = bbox,
+                               segmentation = segmentation,
+                               visual_prompt_style = visual_prompt_style,
+                               alpha = alpha)
     
     # from matplotlib import pyplot as plt
     # image.save('tmp.png')
     # print(conversation)
     # breakpoint()
     return image, conversation
-
-
-

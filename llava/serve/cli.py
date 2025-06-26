@@ -14,7 +14,6 @@ from PIL import Image
 from io import BytesIO
 from transformers import TextStreamer
 
-
 def load_image(image_file):
     if image_file.startswith('http://') or image_file.startswith('https://'):
         response = requests.get(image_file)
@@ -23,13 +22,18 @@ def load_image(image_file):
         image = Image.open(image_file).convert('RGB')
     return image
 
-
 def main(args):
-    # Model
+    #Model
     disable_torch_init()
-
     model_name = get_model_name_from_path(args.model_path)
-    tokenizer, model, image_processor, context_len = load_pretrained_model(args.model_path, args.model_base, model_name, args.load_8bit, args.load_4bit, device=args.device)
+    tokenizer, model, image_processor, context_len = load_pretrained_model(
+        args.model_path,
+        args.model_base,
+        model_name,
+        args.load_8bit,
+        args.load_4bit,
+        device=args.device
+    )
 
     if 'llama-2' in model_name.lower():
         conv_mode = "llava_llama_2"
@@ -52,12 +56,13 @@ def main(args):
         roles = conv.roles
 
     image = load_image(args.image_file)
-    # Similar operation in model_worker.py
+
+    #Similar operation in model_worker.py
     image_tensor = process_images([image], image_processor, model.config)
     if type(image_tensor) is list:
-        image_tensor = [image.to(model.device, dtype=torch.float16) for image in image_tensor]
+        image_tensor = [image.to(model.device, dtype = torch.float16) for image in image_tensor]
     else:
-        image_tensor = image_tensor.to(model.device, dtype=torch.float16)
+        image_tensor = image_tensor.to(model.device, dtype = torch.float16)
 
     while True:
         try:
@@ -71,7 +76,7 @@ def main(args):
         print(f"{roles[1]}: ", end="")
 
         if image is not None:
-            # first message
+            #First message
             if model.config.mm_use_im_start_end:
                 inp = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + inp
             else:
@@ -79,8 +84,9 @@ def main(args):
             conv.append_message(conv.roles[0], inp)
             image = None
         else:
-            # later messages
+            #Later messages
             conv.append_message(conv.roles[0], inp)
+        
         conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
 

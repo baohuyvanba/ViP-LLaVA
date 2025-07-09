@@ -6,7 +6,7 @@ from shapely.ops import unary_union
 from shapely.geometry import Point, Polygon
 from scipy.stats import multivariate_normal
 
-
+#
 color_pool = {
     'red'       : (255, 0, 0),
     'lime'      : (0, 255, 0),
@@ -19,7 +19,7 @@ color_pool = {
     'gold'      : (255, 215, 0),
 }
 
-
+#
 words_shape ={
     "rectangle"     : ["within", "rectangle"], 
     "ellipse"       : ["within", "ellipse"],
@@ -31,7 +31,7 @@ words_shape ={
     "arrow"         : ["pointed to by", "arrow"],
  }
 
-
+#
 def draw_arrow(draw, bbox_coord, outline_color, line_width, max_arrow_length=100, max_image_size=336, image_size_anchor = 336):
     left, top, right, bottom = bbox_coord
     center_x = (left + right) / 2
@@ -61,6 +61,7 @@ def draw_arrow(draw, bbox_coord, outline_color, line_width, max_arrow_length=100
     else:
         # Draw the arrow line
         draw.line([(center_x, center_y), (arrow_end_x, arrow_end_y)], fill=outline_color, width=line_width)
+    
     arrow_end_x = center_x
     arrow_end_y = center_y
     # Draw the arrow head
@@ -81,14 +82,12 @@ def draw_arrow(draw, bbox_coord, outline_color, line_width, max_arrow_length=100
             arrow_end_y + arrow_head_size * math.sin(angle - math.pi / 3))
         ], fill=outline_color, width=line_width)
     
-
-
-
+#
 def draw_rectangle(draw, bbox_coord, outline_color, width):
     left, top, right, bottom = bbox_coord
     draw.rectangle([(left, top), (right, bottom)], outline=outline_color, width=width)
 
-
+#
 def draw_ellipse(draw, bbox_coord, mask_polygon, outline_color, width, size_ratio=1, aspect_ratio = 1.0):
     if mask_polygon!= None:
         minx, miny, maxx, maxy = mask_polygon.bounds
@@ -113,9 +112,7 @@ def draw_ellipse(draw, bbox_coord, mask_polygon, outline_color, width, size_rati
     bbox = [minx, miny, maxx, maxy]
     draw.ellipse(bbox, outline=outline_color, width=width)
     
-    
-
-
+#
 def is_max_angle_less_than_150(points):
     for i in range(3):
         p1 = np.array(points[i])
@@ -133,15 +130,14 @@ def is_max_angle_less_than_150(points):
             return False
     return True
 
-
-
+#
 def get_random_point_within_bbox(bbox):
     left, top, right, bottom = bbox
     x = np.random.uniform(left, right)
     y = np.random.uniform(top, bottom)
     return x, y
 
-
+#
 def get_random_point_within_polygon(polygon):
     minx, miny, maxx, maxy = polygon.bounds
     trial_num = 0
@@ -157,10 +153,8 @@ def get_random_point_within_polygon(polygon):
             x = np.random.uniform(minx, maxx)
             y = np.random.uniform(miny, maxy)
             return x, y
-        
-        
-      
 
+#
 def draw_rounded_triangle(draw, bbox_coord, mask_polygon, outline_color, width):
     while True:
         points = []
@@ -174,8 +168,7 @@ def draw_rounded_triangle(draw, bbox_coord, mask_polygon, outline_color, width):
             break
     draw.line([points[0], points[1], points[2], points[0]], fill=outline_color, width=width, joint='curve')
 
-
-
+#
 def draw_point(draw, bbox_coord, mask_polygon, outline_color=(255,0,0), radius=3, aspect_ratio=1.0):
     # Calculate the center and covariance matrix for multivariate normal distribution
     if mask_polygon!= None:
@@ -209,9 +202,7 @@ def draw_point(draw, bbox_coord, mask_polygon, outline_color=(255,0,0), radius=3
     # Draw the ellipse and fill it with color
     draw.ellipse(bbox, outline=outline_color, fill= outline_color )
     
-    
-
-
+#
 def draw_scribble(draw, bbox_coord, mask_polygon, outline_color=(255, 0, 0), width=3,  max_image_size=336, image_size_anchor = 336):
             
     prev_point = None  # Initialize prev_point outside the loop
@@ -235,14 +226,8 @@ def draw_scribble(draw, bbox_coord, mask_polygon, outline_color=(255, 0, 0), wid
             draw.line([prev_point, current_point], fill=outline_color, width=width)
             
         prev_point = current_point  # Update prev_point to the current ending point
-    
-    
 
-
-
-            
-            
-
+#
 def draw_mask_contour(draw, bbox_coord, segmentation_coords, color="red", width=1, ):
     if segmentation_coords == None:
           segmentation_coords = [[bbox_coord[0], bbox_coord[1], bbox_coord[0], bbox_coord[3], 
@@ -254,7 +239,7 @@ def draw_mask_contour(draw, bbox_coord, segmentation_coords, color="red", width=
                 shifted_coords = [(x + dx, y + dy) for x, y in coords]
                 draw.polygon(shifted_coords, outline=color)
             
-
+#
 def draw_mask(draw, bbox_coord,  segmentation_coords, color="red", width=1,   ):
     if segmentation_coords == None:
           segmentation_coords = [[bbox_coord[0], bbox_coord[1], bbox_coord[0], bbox_coord[3], 
@@ -263,9 +248,9 @@ def draw_mask(draw, bbox_coord,  segmentation_coords, color="red", width=1,   ):
         coords = [(segment[i], segment[i + 1]) for i in range(0, len(segment), 2)]
         draw.polygon(coords, outline= None, fill=color, width=width)
         
-
-
+#
 def image_blending(image, shape = 'rectangle', bbox_coord = None, segmentation = None, image_size_anchor = 336, rgb_value = None, visual_prompt_style = '', alpha = None, width = None):
+
     #Image -> RGB
     image = image.convert("RGB")
     img_width, img_height = image.size

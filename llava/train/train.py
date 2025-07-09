@@ -740,7 +740,9 @@ def preprocess_plain(
     for source in sources:
         assert len(source) == 2
         assert DEFAULT_IMAGE_TOKEN in source[0]['value']
+        
         source[0]['value'] = DEFAULT_IMAGE_TOKEN
+
         conversation = source[0]['value'] + source[1]['value'] + conversation_lib.default_conversation.sep
         conversations.append(conversation)
     # tokenize conversations
@@ -879,6 +881,7 @@ class LazySupervisedDataset(Dataset):
                 self.data_args)
         else:
             sources = copy.deepcopy([e["conversations"] for e in sources])
+        
         data_dict = preprocess(
             sources,
             self.tokenizer,
@@ -895,7 +898,6 @@ class LazySupervisedDataset(Dataset):
             crop_size = self.data_args.image_processor.crop_size
             data_dict['image'] = torch.zeros(3, crop_size['height'], crop_size['width'])
         return data_dict
-
 
 @dataclass
 class DataCollatorForSupervisedDataset(object):
